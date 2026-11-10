@@ -1,0 +1,5 @@
+.env
+__pycache__/
+*.wav
+tempCodeRunnerFile.py
+.vscode/
