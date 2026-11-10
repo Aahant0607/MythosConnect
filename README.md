@@ -4,7 +4,7 @@ Ask a mythology question out loud in one Indian language and hear the answer spo
 
 Built for the **Great Indian AI Internship Challenge** using **Gnani Prisma (speech to text)** and **Gnani Timbre (text to speech)**.
 
-> Demo: _add your public link here (Hugging Face Space / video)_
+> Demo: https://drive.google.com/drive/folders/1AJ1fXsO2CCRKW6IN_i2LC6yUSEy7mVg5?usp=drive_link
 
 ---
 
