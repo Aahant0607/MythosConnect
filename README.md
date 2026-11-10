@@ -8,8 +8,7 @@ Built for the **Great Indian AI Internship Challenge** by Gnani.ai on **Gnani Pr
 |---|---|
 | One-page solution pitch | [Solution_Pitch.pdf](Solution_Pitch.pdf) |
 | Technical report (5 pages) | [MythosConnect_Technical_Report.pdf](MythosConnect_Technical_Report.pdf) |
-| Demo video (2-3 min) | <ADD VIDEO LINK> |
-| Live demo (optional) | <ADD LINK OR DELETE THIS ROW> |
+| Demo video (2-3 min) | https://drive.google.com/drive/folders/1AJ1fXsO2CCRKW6IN_i2LC6yUSEy7mVg5?usp=drive_link |
 | Author | Aahant Kumar, Delhi Technological University (DTU) |
 
 ---
