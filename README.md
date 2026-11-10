@@ -1,51 +1,65 @@
 # MythosConnect: Multilingual Voice Agent
 
-Ask a mythology question out loud in one Indian language and hear the answer spoken back in another.
+Speak a question in one Indian language and hear the answer in another. No typing, no reading.
 
-Built for the **Great Indian AI Internship Challenge** using **Gnani Prisma (speech to text)** and **Gnani Timbre (text to speech)**.
+Built for the **Great Indian AI Internship Challenge** by Gnani.ai on **Gnani Prisma** (speech to text) and **Gnani Timbre** (text to speech).
 
-> Demo: https://drive.google.com/drive/folders/1AJ1fXsO2CCRKW6IN_i2LC6yUSEy7mVg5?usp=drive_link
+| | |
+|---|---|
+| One-page solution pitch | [Solution_Pitch.pdf](Solution_Pitch.pdf) |
+| Technical report (5 pages) | [MythosConnect_Technical_Report.pdf](MythosConnect_Technical_Report.pdf) |
+| Demo video (2-3 min) | <ADD VIDEO LINK> |
+| Live demo (optional) | <ADD LINK OR DELETE THIS ROW> |
+| Author | Aahant Kumar, Delhi Technological University (DTU) |
 
 ---
 
-## What it does
+## Gnani models used
 
-1. You record (or upload) a spoken question, for example in Hindi.
-2. **Gnani Prisma** converts the speech to text.
-3. **Gemini** answers as a cross-cultural mythology expert, in the language you choose, in at most four short lines.
-4. **Gnani Timbre** converts the answer to natural speech and plays it back.
+| Model | Role in the app |
+|---|---|
+| **Gnani Prisma** (STT) | Transcribes the user's recorded or uploaded speech in the chosen input language |
+| **Gnani Timbre** (TTS, `timbre-v2.5`) | Speaks the answer back in the chosen output language |
 
-So a student can ask in Hindi and get the answer in Tamil, English, Telugu, and more, hands-free.
+A general-purpose LLM (Google Gemini) writes the answer between the two Gnani calls. Gnani Evon is **not** used yet; replacing Gemini with Evon is on the roadmap.
+
+## How it works
+
+1. You record or upload a spoken question and pick the input and output languages.
+2. **Prisma** converts the speech to text.
+3. **Gemini** answers in the output language, in at most four short lines, using the selected mode and the last three turns of conversation.
+4. **Timbre** converts the answer to speech and the app plays it.
 
 ## Features
 
-- Voice in (microphone or upload) and voice out, with independent input and output languages (9 Indian languages and English)
-- Three modes on the same pipeline: Mythology Guide, Student Tutor, Citizen Helper
+- Voice in (microphone or upload) and voice out, with independent input and output languages (8 Indian languages and English configured)
+- Three modes on one pipeline: **Mythology Guide**, **Student Tutor**, **Citizen Helper** (plain-language help with services and forms; the prompt tells the model to admit uncertainty and point to official sources)
 - Short conversation memory (last 3 turns) for follow-up questions
 - Per-stage latency shown in the UI (Prisma, Gemini, Timbre)
-- Retry on timeouts, rate limits and server errors; clear per-stage error messages
-- Built-in benchmark (`eval.py`) using both Gnani models
+- Retries on timeouts, rate limits and server errors; empty or truncated TTS audio is detected and retried once
+- Clear per-stage error messages that show the API's own response
+- Built-in benchmark (`eval.py`) that exercises both Gnani models together
 
-## Why it matters (use cases)
+## Use cases
 
-- **Language access for learners:** mythology, folklore and cultural content is mostly written in English or a few major languages. Voice plus translation lets people explore it in their own language.
-- **Low-literacy and elderly users:** no typing or reading needed; speak a question, hear an answer.
-- **Cross-language storytelling:** ask in one language, listen in another, useful for families, classrooms and cultural exchange.
-- **Museums, tourism and heritage sites:** a spoken guide that answers visitors' questions in their language.
-- **Extendable:** swap the system prompt to build a voice tutor for any subject (history, science, civic information).
+- **Language access for learners:** hear mythology, heritage and school topics explained in your own language.
+- **Low-literacy and elderly users:** speak instead of typing and listen instead of reading.
+- **Cross-language exchange:** ask in Hindi, listen in Tamil.
+- **Public-service help:** spoken, simple explanations of services and forms.
+- **Extensible:** a mode is only a system prompt, so new domains need no new infrastructure.
 
 ## Architecture
 
 ```
- +-----------+     audio      +----------------+    text     +-----------+
- |  Gradio   | -------------> | Gnani Prisma   | ----------> |  Gemini   |
- |  Web UI   |   (mic/upload) | (STT, Vachana) |  (question) |   (LLM)   |
- +-----------+                +----------------+             +-----------+
-      ^                                                            |
-      |        audio (wav)     +----------------+    text          |
-      +----------------------- | Gnani Timbre   | <----------------+
-                               | (TTS, Vachana) |  (answer)
-                               +----------------+
+ +-----------+     wav      +----------------+  transcript  +-----------+
+ |  Gradio   | -----------> | Gnani Prisma   | -----------> |  Gemini   |
+ |  Web UI   | (mic/upload) | (STT, Vachana) |              |   (LLM)   |
+ +-----------+              +----------------+              +-----------+
+      ^                                                           |
+      |        wav         +----------------+     answer text     |
+      +------------------- | Gnani Timbre   | <-------------------+
+                           | (TTS, Vachana) |
+                           +----------------+
 ```
 
 | Stage | Component | Endpoint / model |
@@ -58,15 +72,32 @@ So a student can ask in Hindi and get the answer in Tamil, English, Telugu, and 
 
 Both Gnani calls authenticate with the `X-API-Key-ID` header.
 
+## Benchmark: Timbre to Prisma round trip
+
+`eval.py` speaks each test sentence with Timbre, transcribes it with Prisma, and computes word error rate (WER) against the original text. Per-sentence output is in `results.md`.
+
+| Language | Sentences | Mean WER (%) | Mean TTS+STT time (s) |
+|---|---|---|---|
+| Hindi | 3 | 8.3 | 3.6 |
+| English | 3 | 5.6 | 3.4 |
+| Tamil | 3 | 0.0 | 3.1 |
+| Telugu | 3 | 33.3 | 4.1 |
+
+- 11 of 12 sentences were transcribed. One Telugu call failed with `EMPTY_AUDIO` from Prisma and is scored as WER 1.00; the other two Telugu sentences scored 0.00. Overall WER is **11.8%** counting that failure and **3.8%** over the 11 successful calls.
+- The two non-zero successful cases were a word split in Hindi (`sankatmochan` heard as `sankat mochan`) and one substituted word in English (`mochan` heard as `mokhan`).
+- Caveats: 3 sentences per language, clean synthetic speech from the same vendor, one voice. This is a consistency check, not a production accuracy claim. Real human and noisy recordings were not tested.
+- After this run, `gnani_tts` was changed to retry once and raise an error on empty or truncated audio. Re-run `python eval.py` to refresh the table.
+
 ## Project structure
 
 ```
 MythosConnect/
-  app.py            # pipeline, personas, memory, latency, UI
-  eval.py           # Timbre -> Prisma round-trip benchmark (writes results.md)
-  results.md        # latest benchmark output
+  app.py                              # pipeline, modes, memory, latency, UI
+  eval.py                             # Timbre -> Prisma round-trip benchmark
+  results.md                          # latest benchmark output
+  Solution_Pitch.pdf                  # one-page pitch
+  MythosConnect_Technical_Report.pdf  # technical report
   requirements.txt
-  .env.example      # names of the environment variables
   .gitignore
   README.md
 ```
@@ -76,7 +107,7 @@ MythosConnect/
 Requires Python 3.10+.
 
 ```bash
-git clone https://github.com/<your-username>/MythosConnect.git
+git clone https://github.com/Aahant0607/MythosConnect.git
 cd MythosConnect
 pip install -r requirements.txt
 ```
@@ -86,8 +117,8 @@ Set your keys as environment variables (never commit them).
 Windows PowerShell:
 
 ```powershell
-$env:GNANI_API_KEY  = "your-gnani-api-key"
-$env:GEMINI_API_KEY = "your-gemini-api-key"
+$env:GNANI_API_KEY="your-gnani-api-key"
+$env:GEMINI_API_KEY="your-gemini-api-key"
 python app.py
 ```
 
@@ -99,9 +130,9 @@ export GEMINI_API_KEY="your-gemini-api-key"
 python app.py
 ```
 
-Open `http://127.0.0.1:7860` in **Chrome** (the VS Code preview browser cannot use the microphone). Allow microphone access, record a question, and the reply appears automatically.
+Open `http://127.0.0.1:7860` in **Chrome** and allow microphone access (the VS Code preview browser cannot use the microphone). To run the benchmark, use `python eval.py` with the same keys set.
 
-Get keys: Gnani API dashboard (docs at docs.gnani.ai) and Google AI Studio.
+Get keys from the Gnani API dashboard (docs at docs.gnani.ai) and Google AI Studio.
 
 ## Configuration
 
@@ -109,61 +140,42 @@ Edit the constants at the top of `app.py`:
 
 | Setting | Default | Purpose |
 |---------|---------|---------|
-| `STT_MODEL` | `None` (Prisma v2.5) | set to `"prisma-v3.0"` to try Prisma v3 |
+| `STT_MODEL` | `None` (default Prisma model) | set to `"prisma-v3.0"` to try Prisma v3 |
 | `TTS_MODEL` | `timbre-v2.5` | Timbre model |
 | `TTS_VOICE` | `Nalini` | voice from the Gnani voice catalog |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | override with the `GEMINI_MODEL` env var |
-| `LANG_MAP` | 9 languages | language names to Gnani language codes |
+| `LANG_MAP` | 9 entries | language names to Gnani language codes |
+| `PERSONAS` | 3 modes | system prompts for each mode |
+
+The benchmark covers Hindi, English, Tamil and Telugu. The other configured languages (Kannada, Malayalam, Bengali, Marathi, Gujarati) are not benchmarked; check docs.gnani.ai for the current language list.
 
 ## Deploy a public demo (Hugging Face Spaces)
 
-1. Create a new Space, SDK: **Gradio**.
+1. Create a new Space with SDK **Gradio**.
 2. Upload `app.py` and `requirements.txt`.
-3. In Space **Settings > Variables and secrets**, add `GNANI_API_KEY` and `GEMINI_API_KEY` as secrets.
-4. The Space builds and gives you a public URL.
-
-## Benchmark: Timbre to Prisma round trip
-
-`eval.py` speaks each test sentence with Gnani Timbre, transcribes it with Gnani Prisma, and computes word error rate (WER) against the original text. Full per-sentence output is in `results.md`.
-
-| Language | Sentences | Mean WER (%) | Mean TTS+STT time (s) |
-|---|---|---|---|
-| Hindi | 3 | 8.3 | 3.6 |
-| English | 3 | 5.6 | 3.4 |
-| Tamil | 3 | 0.0 | 3.1 |
-| Telugu | 3 | 33.3 | 4.1 |
-
-What the numbers mean:
-
-- 11 of 12 sentences were transcribed; one Telugu call failed with `EMPTY_AUDIO` from Prisma, which is scored as WER 1.00. The other two Telugu sentences scored 0.00. Overall WER is 11.8% counting that failure and 3.8% over the 11 successful calls.
-- The two non-zero successful cases were a word split in Hindi (`sankatmochan` heard as `sankat mochan`) and one substituted word in English (`mochan` heard as `mokhan`).
-- Caveats: only 3 sentences per language, clean synthetic speech from the same vendor, and one voice. Treat this as a consistency check, not a production accuracy claim. Real human and noisy recordings were not tested.
-- After this run, `gnani_tts` was changed to retry once and raise an error if the audio is empty or truncated. Re-run `python eval.py` to refresh the table.
+3. In **Settings > Variables and secrets**, add `GNANI_API_KEY` and `GEMINI_API_KEY` as secrets.
 
 ## Limitations
 
-- Answer quality depends on the LLM; mythology facts should be verified for serious use.
-- Language support is limited to what Prisma and Timbre support; check docs.gnani.ai for the current list.
+- Answer quality depends on the LLM; verify facts before relying on them, especially in Citizen Helper mode.
+- Language support is limited to what Prisma and Timbre support.
 - Each request makes three network calls, so response time depends on all three services.
-- Not yet streaming; the full answer is generated before audio plays.
-- Conversation memory keeps only the last 3 turns, in memory for the current session.
+- The full answer is generated before audio plays (no streaming yet).
+- Conversation memory keeps only the last 3 turns, for the current session.
+- The benchmark is small and uses synthetic speech.
 
 ## Roadmap
 
+- Use Gnani Evon as the reasoning model so the whole pipeline runs on Gnani models
 - Streaming TTS for lower latency
-- Conversation memory for follow-up questions
-- Source-grounded answers (retrieval over curated texts)
+- Retrieval over curated sources for grounded answers
+- Benchmark on recorded human speech; report character error rate as well as WER
 - Voice and speed selection in the UI
-- Use Gnani Evon as the reasoning model
 
 ## Tech stack
 
 Python, Gradio, Requests, Google Gemini (`google-genai`), Gnani Prisma, Gnani Timbre.
 
-## Acknowledgements
+## Author
 
-Built using Gnani.ai's Vachana speech APIs for the Great Indian AI Internship Challenge.
-
-## License
-
-MIT (add a `LICENSE` file if you want to open-source it).
+Aahant Kumar, Delhi Technological University (DTU). Built for the Great Indian AI Internship Challenge by Gnani.ai.
